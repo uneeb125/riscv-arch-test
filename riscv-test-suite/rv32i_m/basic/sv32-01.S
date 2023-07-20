@@ -45,7 +45,7 @@ main:
 	li a1, PTE_V
 	PTE_SETUP_RV32(a0, a1, t0, t1,0x78000000, 1)
 	//setup PTE for level 2
-	li a0, my_test_data
+	LI (a0, my_test_data)
 	li a1, PTE_V|PTE_A|PTE_R
 	PTE_SETUP_RV32(a0, a1, t0, t1,0x78000000, 0)
 	
