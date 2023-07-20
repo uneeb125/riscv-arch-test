@@ -45,7 +45,7 @@ main:
 	li a1, PTE_V
 	PTE_SETUP_RV32(a0, a1, t0, t1,0x78000000, 1)
 	//setup PTE for level 2
-	li a0, pa
+	li a0, my_test_data
 	li a1, PTE_V|PTE_A|PTE_R
 	PTE_SETUP_RV32(a0, a1, t0, t1,0x78000000, 0)
 	
@@ -491,21 +491,15 @@ RVTEST_CODE_END
 RVMODEL_HALT
 
 RVTEST_DATA_BEGIN
-.align 4
-rvtest_data:
-.word 0xdeadcafe
-RVTEST_DATA_END
-
-RVTEST_DATA_BEGIN
 my_test_data:
 	.fill 1*(XLEN/32),4,0x123456FF
+
+RVTEST_DATA_END
 #ifdef rvtest_strap_routine
 .align 12
 	rvtest_slvl1_pg_tbl:
 		RVTEST_PTE_IDENT_MAP
 #endif
-
-RVTEST_DATA_END
 
 RVMODEL_DATA_BEGIN
 rvtest_sig_begin:
