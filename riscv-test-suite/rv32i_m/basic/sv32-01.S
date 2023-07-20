@@ -33,20 +33,20 @@ main:
 	.set va, 0x91240000
 	.set pa, 0x80000000
 	// setup PTE for level 1
-	la a0, rvtest_slvl1_pg_tbl			// rvtest_slvl1_pg_tbl is base address for level 2(0) that is present in PTE of level 1
-	li a1, PTE_V
+	LA (a0, rvtest_slvl1_pg_tbl)			// rvtest_slvl1_pg_tbl is base address for level 2(0) that is present in PTE of level 1
+	LI (a1, PTE_V)
 	PTE_SETUP_RV32(a0, a1, t0, t1, va, 1)
 	//setup PTE for level 2
-	li a0, pa
-	li a1, PTE_V|PTE_A|PTE_R|PTE_X|PTE_W
+	LI (a0, pa)
+	LI (a1, PTE_V|PTE_A|PTE_R|PTE_X|PTE_W)
 	PTE_SETUP_RV32(a0, a1, t0, t1, va, 0)
 	//setup PTE for level 1
-	la a0, rvtest_slvl1_pg_tbl			// rvtest_slvl1_pg_tbl is base address for level 2(0) that is present in PTE of level 1
-	li a1, PTE_V
+	LA (a0, rvtest_slvl1_pg_tbl)			// rvtest_slvl1_pg_tbl is base address for level 2(0) that is present in PTE of level 1
+	LI (a1, PTE_V)
 	PTE_SETUP_RV32(a0, a1, t0, t1,0x78000000, 1)
 	//setup PTE for level 2
-	LI (a0, my_test_data)
-	li a1, PTE_V|PTE_A|PTE_R
+	LA (a0, my_test_data)
+	LI a1, PTE_V|PTE_A|PTE_R
 	PTE_SETUP_RV32(a0, a1, t0, t1,0x78000000, 0)
 	
     csrw mie, zero
