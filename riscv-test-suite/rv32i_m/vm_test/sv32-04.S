@@ -1,4 +1,4 @@
-// -----------
+
 // Copyright (c) 2020. RISC-V International. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // -----------
@@ -72,7 +72,7 @@ main:
     csrs    mstatus, t0
 
     /* Goto S mode */
-	LA (t3, Goto_smodetg763errr433w
+	LA (t3, Goto_smode)
 	jalr t3
     
     LI (t0, PTE_L1_addr)
