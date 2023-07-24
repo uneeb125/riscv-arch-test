@@ -1,518 +1,130 @@
+// -----------
+// Copyright (c) 2020. RISC-V International. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// -----------
+//
+// This is a VM test file with SV32 address translation scheme, to verify the working of trap handler and other macros in arch_test.h
+// 
+
 #include "model_test.h"
 #include "arch_test.h"
-RVTEST_ISA("RV32IZicsr")
-        
+
+RVTEST_ISA("RV32I_Zicsr")
+
+# Test code region
 .section .text.init
 .globl rvtest_entry_point
 rvtest_entry_point:
 RVMODEL_BOOT
 RVTEST_CODE_BEGIN
-
 #ifdef TEST_CASE_1
-
-RVTEST_CASE(0,"//check ISA:=regex(.*32.*); check ISA:=regex(.*I.*Zicsr.*); def rvtest_mtrap_routine=True;def rvtest_strap_routine=True; def TEST_CASE_1=True",sv32)
-
-RVTEST_SIGBASE( x3,signature_x13_1)
-
-main: 
-    // TO verity mtrap and strap routines are TRUE
-	#ifdef rvtest_mtrap_routine
-		li a4, 0xceed
-		RVTEST_SIGUPD(x3,a4)
-	#endif
-	#ifdef rvtest_strap_routine
-		li a4, 0xbeed
-		RVTEST_SIGUPD(x3,a4)
-	#endif
-	// PMP address and configuration registers for setting address
-	li a4, -1
-	csrw pmpaddr0, a4
-	li a5, 0xf
-	csrw pmpcfg0, a5
-	// setting physical and virtual addresses
-	.set va, 0x91240000
-	.set pa, 0x80000000
-	// setup PTE for level 1
-	LA (a0, rvtest_slvl1_pg_tbl)			// rvtest_slvl1_pg_tbl is base address for level 2(0) that is present in PTE of level 1
-	LI (a1, PTE_V)
-	PTE_SETUP_RV32(a0, a1, t0, t1, va, 1)
-	//setup PTE for level 2
-	LI (a0, pa)
-	LI (a1, PTE_V|PTE_A|PTE_R|PTE_X|PTE_W)
-	PTE_SETUP_RV32(a0, a1, t0, t1, va, 0)
-	//setup PTE for level 1
-	LA (a0, rvtest_slvl1_pg_tbl)			// rvtest_slvl1_pg_tbl is base address for level 2(0) that is present in PTE of level 1
-	LI (a1, PTE_V)
-	PTE_SETUP_RV32(a0, a1, t0, t1,0x78000000, 1)
-	//setup PTE for level 2
-	LA (a0, my_test_data)
-	LI a1, PTE_V|PTE_A|PTE_R
-	PTE_SETUP_RV32(a0, a1, t0, t1,0x78000000, 0)
-	
-    csrw mie, zero
-  	csrw satp, zero                     // Disable address translation.
-	LA (t0, mtvec_handler)
-    csrw mtvec, t0						// Write vector table address
-
-    /* Goto S mode */
-	LA (t3, Goto_smode)
-	jr t3
-
-    SATP_SETUP_SV32
-
-    LI (x2, 0x80010104)
-inst_0:
-// rs1 != rs2, rs1==x15, rs2==x30, rs2_val == (-2**(xlen-1)), imm_val > 0, rs2_val == -2147483648, ea_align == 0 and (imm_val % 4) == 0
-// opcode: sw; op1:x15; op2:x30; op2val:-0x80000000; immval:0x80; align:0
-TEST_STORE(x2,x5,0,x15,x30,-0x80000000,0x80,0,sw,0)
-
-inst_1:
-// rs1==x12, rs2==x19, rs2_val == 0, imm_val < 0, ea_align == 0 and (imm_val % 4) == 3
-// opcode: sw; op1:x12; op2:x19; op2val:0x0; immval:-0x81; align:0
-TEST_STORE(x2,x5,0,x12,x19,0x0,-0x81,4,sw,0)
-
-inst_2:
-// rs1==x29, rs2==x26, rs2_val == (2**(xlen-1)-1), rs2_val == 2147483647
-// opcode: sw; op1:x29; op2:x26; op2val:0x7fffffff; immval:0x3ff; align:0
-TEST_STORE(x2,x5,0,x29,x26,0x7fffffff,0x3ff,8,sw,0)
-
-inst_3:
-// rs1==x1, rs2==x0, rs2_val == 1, ea_align == 0 and (imm_val % 4) == 1
-// opcode: sw; op1:x1; op2:x0; op2val:0x0; immval:0x555; align:0
-TEST_STORE(x2,x5,0,x1,x0,0x0,0x555,12,sw,0)
-
-inst_4:
-// rs1==x28, rs2==x22, ea_align == 0 and (imm_val % 4) == 2, rs2_val == 32768
-// opcode: sw; op1:x28; op2:x22; op2val:0x8000; immval:-0x2; align:0
-TEST_STORE(x2,x5,0,x28,x22,0x8000,-0x2,16,sw,0)
-
-inst_5:
-// rs1==x18, rs2==x16, imm_val == 0, rs2_val == -17
-// opcode: sw; op1:x18; op2:x16; op2val:-0x11; immval:0x0; align:0
-TEST_STORE(x2,x5,0,x18,x16,-0x11,0x0,20,sw,0)
-
-inst_6:
-// rs1==x27, rs2==x20, rs2_val == 2, 
-// opcode: sw; op1:x27; op2:x20; op2val:0x2; immval:0x9; align:0
-TEST_STORE(x2,x5,0,x27,x20,0x2,0x9,24,sw,0)
-
-inst_7:
-// rs1==x23, rs2==x18, rs2_val == 4, 
-// opcode: sw; op1:x23; op2:x18; op2val:0x4; immval:-0x401; align:0
-TEST_STORE(x2,x5,0,x23,x18,0x4,-0x401,28,sw,0)
-
-inst_8:
-// rs1==x16, rs2==x31, rs2_val == 8, 
-// opcode: sw; op1:x16; op2:x31; op2val:0x8; immval:0x4; align:0
-TEST_STORE(x2,x5,0,x16,x31,0x8,0x4,32,sw,0)
-
-inst_9:
-// rs1==x3, rs2==x21, rs2_val == 16, 
-// opcode: sw; op1:x3; op2:x21; op2val:0x10; immval:0x7; align:0
-TEST_STORE(x2,x5,0,x3,x21,0x10,0x7,36,sw,0)
-
-inst_10:
-// rs1==x9, rs2==x23, rs2_val == 32, 
-// opcode: sw; op1:x9; op2:x23; op2val:0x20; immval:0x5; align:0
-TEST_STORE(x2,x5,0,x9,x23,0x20,0x5,40,sw,0)
-
-inst_11:
-// rs1==x8, rs2==x29, rs2_val == 64, 
-// opcode: sw; op1:x8; op2:x29; op2val:0x40; immval:-0x81; align:0
-TEST_STORE(x2,x5,0,x8,x29,0x40,-0x81,44,sw,0)
-
-inst_12:
-// rs1==x4, rs2==x13, rs2_val == 128, 
-// opcode: sw; op1:x4; op2:x13; op2val:0x80; immval:-0x9; align:0
-TEST_STORE(x2,x5,0,x4,x13,0x80,-0x9,48,sw,0)
-
-
-inst_13:
-// rs1==x31, rs2==x15, rs2_val == 256, 
-// opcode: sw; op1:x31; op2:x15; op2val:0x100; immval:-0x2; align:0
-TEST_STORE(x2,x5,0,x31,x15,0x100,-0x2,52,sw,0)
-
-inst_14:
-// rs1==x17, rs2==x12, rs2_val == 512, 
-// opcode: sw; op1:x17; op2:x12; op2val:0x200; immval:-0x201; align:0
-TEST_STORE(x2,x5,0,x17,x12,0x200,-0x201,56,sw,0)
-
-inst_15:
-// rs1==x7, rs2==x10, rs2_val == 1024, 
-// opcode: sw; op1:x7; op2:x10; op2val:0x400; immval:0x80; align:0
-TEST_STORE(x2,x5,0,x7,x10,0x400,0x80,60,sw,0)
-
-inst_16:
-// rs1==x14, rs2==x25, rs2_val == 2048, 
-// opcode: sw; op1:x14; op2:x25; op2val:0x800; immval:-0x2; align:0
-TEST_STORE(x2,x5,0,x14,x25,0x800,-0x2,64,sw,0)
-
-inst_17:
-// rs1==x22, rs2==x24, rs2_val == 4096, 
-// opcode: sw; op1:x22; op2:x24; op2val:0x1000; immval:-0x3; align:0
-TEST_STORE(x2,x5,0,x22,x24,0x1000,-0x3,68,sw,0)
-
-inst_18:
-// rs1==x24, rs2==x5, rs2_val == 8192, 
-// opcode: sw; op1:x24; op2:x5; op2val:0x2000; immval:0x400; align:0
-TEST_STORE(x2,x15,0,x24,x5,0x2000,0x400,72,sw,0)
-
-LI (x12, 0x80010150)
-
-inst_19:
-// rs1==x13, rs2==x1, rs2_val == 16384, 
-// opcode: sw; op1:x13; op2:x1; op2val:0x4000; immval:-0x201; align:0
-TEST_STORE(x12,x15,0,x13,x1,0x4000,-0x201,0,sw,0)
-
-inst_20:
-// rs1==x11, rs2==x9, rs2_val == 65536, 
-// opcode: sw; op1:x11; op2:x9; op2val:0x10000; immval:-0x5; align:0
-TEST_STORE(x12,x15,0,x11,x9,0x10000,-0x5,4,sw,0)
-
-inst_21:
-// rs1==x21, rs2==x2, rs2_val == 131072, 
-// opcode: sw; op1:x21; op2:x2; op2val:0x20000; immval:0x7; align:0
-TEST_STORE(x12,x15,0,x21,x2,0x20000,0x7,8,sw,0)
-
-inst_22:
-// rs1==x19, rs2==x28, rs2_val == 262144, 
-// opcode: sw; op1:x19; op2:x28; op2val:0x40000; immval:-0x9; align:0
-TEST_STORE(x12,x15,0,x19,x28,0x40000,-0x9,12,sw,0)
-
-inst_23:
-// rs1==x6, rs2==x8, rs2_val == 524288, 
-// opcode: sw; op1:x6; op2:x8; op2val:0x80000; immval:0x2; align:0
-TEST_STORE(x12,x15,0,x6,x8,0x80000,0x2,16,sw,0)
-
-inst_24:
-// rs1==x25, rs2==x7, rs2_val == 1048576, 
-// opcode: sw; op1:x25; op2:x7; op2val:0x100000; immval:-0x101; align:0
-TEST_STORE(x12,x15,0,x25,x7,0x100000,-0x101,20,sw,0)
-
-inst_25:
-// rs1==x10, rs2==x6, rs2_val == 2097152, 
-// opcode: sw; op1:x10; op2:x6; op2val:0x200000; immval:0x4; align:0
-TEST_STORE(x12,x15,0,x10,x6,0x200000,0x4,24,sw,0)
-
-inst_26:
-// rs1==x30, rs2==x14, rs2_val == 4194304, 
-// opcode: sw; op1:x30; op2:x14; op2val:0x400000; immval:-0x3; align:0
-TEST_STORE(x12,x15,0,x30,x14,0x400000,-0x3,28,sw,0)
-
-inst_27:
-// rs1==x26, rs2==x4, rs2_val == 8388608, 
-// opcode: sw; op1:x26; op2:x4; op2val:0x800000; immval:0x1; align:0
-TEST_STORE(x12,x15,0,x26,x4,0x800000,0x1,32,sw,0)
-
-inst_28:
-// rs1==x2, rs2==x17, rs2_val == 16777216, 
-// opcode: sw; op1:x2; op2:x17; op2val:0x1000000; immval:0x20; align:0
-TEST_STORE(x12,x15,0,x2,x17,0x1000000,0x20,36,sw,0)
-
-inst_29:
-// rs1==x20, rs2==x11, rs2_val == 33554432, 
-// opcode: sw; op1:x20; op2:x11; op2val:0x2000000; immval:-0x7; align:0
-TEST_STORE(x12,x15,0,x20,x11,0x2000000,-0x7,40,sw,0)
-
-inst_30:
-// rs1==x5, rs2==x27, rs2_val == 67108864, 
-// opcode: sw; op1:x5; op2:x27; op2val:0x4000000; immval:-0x556; align:0
-TEST_STORE(x12,x15,0,x5,x27,0x4000000,-0x556,44,sw,0)
-
-inst_31:
-// rs2==x3, rs2_val == 134217728, 
-// opcode: sw; op1:x28; op2:x3; op2val:0x8000000; immval:0x5; align:0
-TEST_STORE(x12,x15,0,x28,x3,0x8000000,0x5,48,sw,0)
-
-inst_32:
-// rs2_val == 268435456, 
-// opcode: sw; op1:x10; op2:x11; op2val:0x10000000; immval:-0x11; align:0
-TEST_STORE(x12,x15,0,x10,x11,0x10000000,-0x11,52,sw,0)
-
-inst_33:
-// rs2_val == 536870912, 
-// opcode: sw; op1:x10; op2:x11; op2val:0x20000000; immval:0x3ff; align:0
-TEST_STORE(x12,x15,0,x10,x11,0x20000000,0x3ff,56,sw,0)
-
-inst_34:
-// rs2_val == 1073741824, 
-// opcode: sw; op1:x10; op2:x11; op2val:0x40000000; immval:-0x8; align:0
-TEST_STORE(x12,x15,0,x10,x11,0x40000000,-0x8,60,sw,0)
-
-inst_35:
-// rs2_val == -2, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x2; immval:0x6; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x2,0x6,64,sw,0)
-
-inst_36:
-// rs2_val == -4194305, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x400001; immval:0x200; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x400001,0x200,68,sw,0)
-
-inst_37:
-// rs2_val == -8388609, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x800001; immval:-0x11; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x800001,-0x11,72,sw,0)
-
-inst_38:
-// rs2_val == -16777217, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x1000001; immval:0x4; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x1000001,0x4,76,sw,0)
-
-inst_39:
-// rs2_val == -33554433, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x2000001; immval:0x10; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x2000001,0x10,80,sw,0)
-
-inst_40:
-// rs2_val == -67108865, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x4000001; immval:-0x4; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x4000001,-0x4,84,sw,0)
-
-inst_41:
-// rs2_val == -134217729, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x8000001; immval:0x80; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x8000001,0x80,88,sw,0)
-
-inst_42:
-// rs2_val == -268435457, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x10000001; immval:-0x9; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x10000001,-0x9,92,sw,0)
-
-inst_43:
-// rs2_val == -536870913, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x20000001; immval:0x3; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x20000001,0x3,96,sw,0)
-
-inst_44:
-// rs2_val == -1073741825, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x40000001; immval:0x400; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x40000001,0x400,100,sw,0)
-
-inst_45:
-// rs2_val == 1431655765, 
-// opcode: sw; op1:x10; op2:x11; op2val:0x55555555; immval:0x7; align:0
-TEST_STORE(x12,x15,0,x10,x11,0x55555555,0x7,104,sw,0)
-
-inst_46:
-// rs2_val == -1431655766, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x55555556; immval:0x7; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x55555556,0x7,108,sw,0)
-
-inst_47:
-// rs2_val == -3, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x3; immval:0x40; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x3,0x40,112,sw,0)
-
-inst_48:
-// rs2_val == -5, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x5; immval:0x7ff; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x5,0x7ff,116,sw,0)
-
-inst_49:
-// rs2_val == -9, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x9; immval:0x200; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x9,0x200,120,sw,0)
-
-inst_50:
-// rs2_val == -33, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x21; immval:-0x800; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x21,-0x800,124,sw,0)
-
-inst_51:
-// rs2_val == -65, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x41; immval:-0x2; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x41,-0x2,128,sw,0)
-
-inst_52:
-// rs2_val == -129, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x81; immval:-0x8; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x81,-0x8,132,sw,0)
-
-inst_53:
-// rs2_val == -257, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x101; immval:-0x101; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x101,-0x101,136,sw,0)
-
-inst_54:
-// rs2_val == -513, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x201; immval:-0x556; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x201,-0x556,140,sw,0)
-
-inst_55:
-// rs2_val == -1025, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x401; immval:-0x556; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x401,-0x556,144,sw,0)
-
-inst_56:
-// rs2_val == -2049, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x801; immval:0x5; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x801,0x5,148,sw,0)
-
-inst_57:
-// rs2_val == -4097, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x1001; immval:-0x3; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x1001,-0x3,152,sw,0)
-
-inst_58:
-// rs2_val == -8193, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x2001; immval:-0x11; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x2001,-0x11,156,sw,0)
-
-inst_59:
-// rs2_val == -16385, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x4001; immval:0x6; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x4001,0x6,160,sw,0)
-
-inst_60:
-// rs2_val == -32769, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x8001; immval:-0x41; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x8001,-0x41,164,sw,0)
-
-inst_61:
-// rs2_val == -65537, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x10001; immval:-0x9; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x10001,-0x9,168,sw,0)
-
-inst_62:
-// rs2_val == -131073, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x20001; immval:-0x1; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x20001,-0x1,172,sw,0)
-
-inst_63:
-// rs2_val == -262145, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x40001; immval:0x400; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x40001,0x400,176,sw,0)
-
-inst_64:
-// rs2_val == -524289, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x80001; immval:0x9; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x80001,0x9,180,sw,0)
-
-inst_65:
-// rs2_val == -1048577, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x100001; immval:0x1; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x100001,0x1,184,sw,0)
-
-inst_66:
-// rs2_val == -2097153, 
-// opcode: sw; op1:x10; op2:x11; op2val:-0x200001; immval:0x20; align:0
-TEST_STORE(x12,x15,0,x10,x11,-0x200001,0x20,188,sw,0)
-
-inst_67:
-// rs2_val == 1, ea_align == 0 and (imm_val % 4) == 1
-// opcode: sw; op1:x10; op2:x11; op2val:0x1; immval:0x555; align:0
-TEST_STORE(x12,x15,0,x10,x11,0x1,0x555,192,sw,0)
-
-j exit
-
-
-	/* Trap Handler Starts */
-mtvec_handler:
-	csrr t1, mcause			// read mcause
-	# RVTEST_SIGUPD(x3,t1,0)
-	# addi x3,x3,4
-	# csrr t0, mstatus		// read mstatus
-	# RVTEST_SIGUPD(x3,t0,0)
-	# addi x3,x3,4
-	// set up temporary registers
-    li t3, 0x3
-	li t4, 0x9
-	li t5, 0x10
-	li t6, 0x11
-	// set mepc to return address
-	csrr 	t0, mepc
-	addi 	t0,t0,4
-	csrw 	mepc, t0
-	# csrr 	t0, mepc
-	# RVTEST_SIGUPD(x3,t0,0)
-	# addi 	x3,x3,4
-	beq 	t4,s1, u_mode
-	beq 	t5,s1, s_mode
-	beq 	t6,s1, m_mode
-    bne     t3,t1, m_mode
-	mret
-m_mode:
-	li      t0, MSTATUS_MPP
-    csrs    mstatus, t0		// set mstatus.mpp=11
-	# csrr 	a1, mstatus
-	# RVTEST_SIGUPD(x3,a1,0)
-	# addi x3,x3,4
-	mret	
-s_mode:
-	li 		t0, MSTATUS_MPP
-	csrc	mstatus, t0		// clear mstatus
-	li      t0, 0x800
-    csrs    mstatus, t0		// set mstatus.mpp=01
-    # li      t0, MSTATUS_MXR
-    # csrs    mstatus, t0
-    # li      t0, MSTATUS_SUM
-    # csrs    mstatus, t0
-    # li      t0, MSTATUS_MPRV
-    # csrs    mstatus, t0
-
-	mret
-u_mode:
-	li 		t0, MSTATUS_MPP
-	csrc	mstatus, t0		// clear mstatus --> mstatus.MPP=00
-	# csrr 	a1, mstatus
-	# RVTEST_SIGUPD(x3,a1,0)
-	# addi x3,x3,4
-	mret
-
-	/* Trap Handler ends here  */
-
-Goto_mmode:
-	addi s1,x0,0x11
-	ebreak
-	addi s1,x0,0x0
-	jr ra
-Goto_smode:
-	addi s1,x0,0x10
-	ebreak
-	addi s1,x0,0x0
-	jr ra
-Goto_umode:
-	addi s1,x0,0x9
-	ebreak
-	addi s1,x0,0x0
-	jr ra
-
-exit: 
-    la t0, Goto_mmode
-	jalr t0
-	# li t0,0xceeeeeed
-	# RVTEST_SIGUPD(x3,t0,0)
-	# addi x3,x3,4
-
+    RVTEST_CASE(1,"//check ISA:=regex(.*32.*); check ISA:=regex(.*I.*Zicsr.*); def rvtest_mtrap_routine=True; def rvtest_strap_routine=True; def TEST_CASE_1=True",sv32)
+
+RVTEST_SIGBASE( x13,signature_x13_1)
+  	
+main:
+#ifdef rvtest_mtrap_routine	// Verification of existance of rvtest_mtrap_routine
+	li a4, 0xceed
+	RVTEST_SIGUPD(x13,a4)
 #endif
-    
+#ifdef rvtest_strap_routine	// Verification of existance of rvtest_strap_routine
+	li a4, 0xbeed
+	RVTEST_SIGUPD(x13,a4)
+#endif
+	
+	li t2, -1		// WHOLE PHYSICAL MEMORY AS SINGLE REGION
+	csrw pmpaddr0, t2
+	li t2, 0x0F		// TOR MODE WITH LOCK BIT ON; WIll write in terms of MACROS later
+	csrw pmpcfg0, t2
+	// write satp with all zeros (bare mode)
+	csrw satp, x0
+
+	.set va, 0x90000000
+	.set pa, 0x80000000 
+
+	// PTE setup for Instruction memory 0x91240000 -> 0x80000000
+
+	la a0, rvtest_slvl1_pg_tbl
+    	li a1,(PTE_V)   // permissions for PTE to for address instruction of instruction memory
+	PTE_SETUP_RV32(a0, a1, t0, t1, va, 1)
+	
+	li a0, pa
+	li a4, 0x1234
+
+	li a1, (PTE_V | PTE_A | PTE_D | PTE_G | PTE_W | PTE_X)
+	PTE_SETUP_RV32(a0, a1, t0, t1, va, 0)
+
+
+    	LA(t6, rvtest_Sroot_pg_tbl)
+    	LI(t5, SATP32_MODE) 
+
+    	srli t6, t6, 12 
+    	or t6, t6, t5 
+	csrw satp, t6    	  
+
+	/* Save Virtual addresses in of Code and Data 
+	 in their respective S-mode save area */
+
+	/****** code ******/
+	LI (t0, va)
+	LI (t1, pa)
+	sub t0, t0, t1 // (VA-PA) Note: VA > PA 
+	csrr sp, mscratch
+	add t1,sp,t0
+	csrw sscratch, t1
+	
+	LREG t1, code_bgn_off+0*sv_area_sz(sp)
+	add t2, t1,t0
+	SREG t2, code_bgn_off+1*sv_area_sz(sp)
+
+	/******* data *******/
+	// update save area
+	LREG t1, data_bgn_off+0*sv_area_sz(sp)
+	add  t2, t1,t0
+	SREG t2, data_bgn_off+1*sv_area_sz(sp)
+	//signature
+	LREG t1, sig_bgn_off+0*sv_area_sz(sp)
+	add t2, t1, t0
+	SREG t2, sig_bgn_off+1*sv_area_sz(sp)
+	sfence.vma
+	RVTEST_GOTO_LOWER_MODE	Smode		   // Switching to S mode
+        
+
+vm_en: 
+	LA (x2, 0x90000000)
+        lw x3, 0x04(x2)	
+	RVTEST_SIGUPD(x13,x3)
+#endif
+
+ # ---------------------------------------------------------------------------------------------
 RVTEST_CODE_END
 RVMODEL_HALT
 
 RVTEST_DATA_BEGIN
-my_test_data:
-	.fill 1*(XLEN/32),4,0x123456FF
 
-RVTEST_DATA_END
+
 #ifdef rvtest_strap_routine
 .align 12
-	rvtest_slvl1_pg_tbl:
+rvtest_slvl1_pg_tbl:
 		RVTEST_PTE_IDENT_MAP
 #endif
-
+RVTEST_DATA_END
 RVMODEL_DATA_BEGIN
 rvtest_sig_begin:
+sig_begin_canary:
+CANARY;
 
 // test signatures initialization
 signature_x13_1:
-    .fill 8*(XLEN/32),4,0xcafebeef
+    .fill 32*(XLEN/32),4,0xcafebeef
 
 // trap signatures initialization
 #ifdef rvtest_mtrap_routine
 mtrap_sigptr:
-    .fill 8*(XLEN/32),4,0xdeadbeef
+    .fill 32*(XLEN/32),4,0xdeadbeef
 #endif
 
+sig_end_canary:
+CANARY;
 rvtest_sig_end:
 RVMODEL_DATA_END
