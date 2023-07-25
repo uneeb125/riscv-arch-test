@@ -34,7 +34,7 @@ main:
 	
 	li t2, -1		// WHOLE PHYSICAL MEMORY AS SINGLE REGION
 	csrw pmpaddr0, t2
-	li t2, 0x0F		// TOR MODE WITH LOCK BIT ON; WIll write in terms of MACROS later
+	li t2, 0x0F		// TOR MODE WITH RWX ON
 	csrw pmpcfg0, t2
 	// write satp with all zeros (bare mode)
 	csrw satp, x0
@@ -42,7 +42,7 @@ main:
 	.set va, 0x90000000
 	.set pa, 0x80000000 
 
-	// PTE setup for Instruction memory 0x91240000 -> 0x80000000
+	// PTE setup for Instruction memory 0x90000000 -> 0x80000000
 
 	la a0, rvtest_slvl1_pg_tbl
     	li a1,(PTE_V)   // permissions for PTE to for address instruction of instruction memory
@@ -51,17 +51,16 @@ main:
 	li a0, pa
 	li a4, 0x1234
 
-	li a1, (PTE_V | PTE_A | PTE_D | PTE_G | PTE_W | PTE_X)
+	li a1, (PTE_V | PTE_A | PTE_D | PTE_G)
 	PTE_SETUP_RV32(a0, a1, t0, t1, va, 0)
 
-
+	
     	LA(t6, rvtest_Sroot_pg_tbl)
     	LI(t5, SATP32_MODE) 
 
     	srli t6, t6, 12 
     	or t6, t6, t5 
-	csrw satp, t6    	  
-
+	csrw satp, t6   
 	/* Save Virtual addresses in of Code and Data 
 	 in their respective S-mode save area */
 
@@ -86,7 +85,9 @@ main:
 	LREG t1, sig_bgn_off+0*sv_area_sz(sp)
 	add t2, t1, t0
 	SREG t2, sig_bgn_off+1*sv_area_sz(sp)
-	sfence.vma
+	
+	sfence.vma       
+	
 	RVTEST_GOTO_LOWER_MODE	Smode		   // Switching to S mode
         
 

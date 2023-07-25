@@ -34,7 +34,7 @@ main:
 	
 	li t2, -1		// WHOLE PHYSICAL MEMORY AS SINGLE REGION
 	csrw pmpaddr0, t2
-	li t2, 0x0F		// TOR MODE WITH LOCK BIT ON; WIll write in terms of MACROS later
+	li t2, 0x0F		// TOR MODE with RWX ON
 	csrw pmpcfg0, t2
 	// write satp with all zeros (bare mode)
 	csrw satp, x0
@@ -42,7 +42,7 @@ main:
 	.set va, 0x90000000
 	.set pa, 0x80000000 
 
-	// PTE setup for Instruction memory 0x91240000 -> 0x80000000
+	// PTE setup for Instruction memory 0x90000000 -> 0x80000000
 
 	la a0, rvtest_slvl1_pg_tbl
     	li a1,(PTE_V)   // permissions for PTE to for address instruction of instruction memory
@@ -91,9 +91,8 @@ main:
         
 
 vm_en: 
-	addi x3, x0, 9
 	LA (x2, 0x90000000)
-        sw x3, 0x04(x2)	
+        lw x3, 0x04(x2)	
 #endif
 
  # ---------------------------------------------------------------------------------------------
